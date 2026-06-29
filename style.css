@@ -871,3 +871,116 @@ header.dashboard-header {
     overflow-x: auto;
   }
 }
+
+/* Slice Map Editor Styles */
+.slice-map-wrapper {
+  position: relative;
+  width: 225px;
+  height: 216px;
+  margin: 0 auto 1.5rem auto;
+}
+
+.slice-hex {
+  position: absolute;
+  width: 75px;
+  height: 86px;
+  cursor: pointer;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+.slice-hex.blue-tile {
+  background: linear-gradient(135deg, rgba(29, 78, 216, 0.45), rgba(30, 41, 59, 0.8));
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.slice-hex.red-tile {
+  background: linear-gradient(135deg, rgba(185, 28, 28, 0.45), rgba(30, 41, 59, 0.8));
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.slice-hex.active-hex {
+  box-shadow: 0 0 15px var(--accent-teal);
+  filter: brightness(1.2);
+  transform: scale(1.05);
+  z-index: 10;
+}
+
+.slice-hex:hover {
+  filter: brightness(1.15);
+  transform: scale(1.03);
+  z-index: 5;
+}
+
+.slice-hex-number {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text-main);
+  line-height: 1.1;
+}
+
+.slice-hex-name {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  margin-top: 2px;
+}
+
+.slice-hex-planets {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent-amber);
+  margin-top: 2px;
+}
+
+.slice-hex-icons {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+  font-size: 0.6rem;
+}
+
+.slices-editor-result-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.85rem;
+  color: var(--text-main);
+}
+
+.slices-editor-result-item:hover {
+  background: rgba(20, 184, 166, 0.15);
+  border-color: var(--accent-teal);
+}
+
+.slice-card {
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.2s ease;
+}
+
+.slice-card:hover {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
+}

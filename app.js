@@ -1098,6 +1098,490 @@ document.addEventListener('DOMContentLoaded', () => {
     generateTournamentTables();
   });
 
+  // --- EDITOR DE SLICES (MILTY DRAFT) CODE ---
+  
+  // Slices state variables
+  let slicesData = []; // Array of { name: 'A', tiles: ['65', '29', '68', '25', '41'] }
+  let selectedTile = null; // { sliceIndex: number, tileIndex: number }
+
+  const slicesEls = {
+    container: document.getElementById('slices-container'),
+    stringInput: document.getElementById('slices-string-input'),
+    btnImport: document.getElementById('slices-btn-import'),
+    btnExport: document.getElementById('slices-btn-export'),
+    btnAdd: document.getElementById('slices-btn-add'),
+    btnClear: document.getElementById('slices-btn-clear'),
+    editorPanel: document.getElementById('slices-editor-panel'),
+    editorEmpty: document.getElementById('slices-editor-empty'),
+    editorContent: document.getElementById('slices-editor-content'),
+    editSliceName: document.getElementById('slices-edit-slice-name'),
+    editPositionName: document.getElementById('slices-edit-position-name'),
+    sysSearch: document.getElementById('slices-sys-search'),
+    searchResults: document.getElementById('slices-search-results')
+  };
+
+  const slicePositions = [
+    { label: 'Esquerda (LA)', index: 0, top: 130, left: 0 },
+    { label: 'Esquerda-Frente (LF)', index: 1, top: 65, left: 37.5 },
+    { label: 'Centro/Frente (C)', index: 2, top: 0, left: 75 },
+    { label: 'Direita-Frente (RF)', index: 3, top: 65, left: 112.5 },
+    { label: 'Direita (RA)', index: 4, top: 130, left: 150 }
+  ];
+
+  // Helper to calculate slice metrics
+  function calculateSliceMetrics(tiles) {
+    let totalRes = 0;
+    let totalInf = 0;
+    let optimalRes = 0;
+    let optimalInf = 0;
+    let optimalFlex = 0;
+    let skips = [];
+    let hasLegendary = false;
+    let wormholes = new Set();
+
+    tiles.forEach(id => {
+      const sys = TI4_SYSTEMS[id];
+      if (!sys) return;
+
+      sys.wormholes.forEach(w => wormholes.add(w));
+
+      sys.planets.forEach(p => {
+        totalRes += p.resources;
+        totalInf += p.influence;
+
+        if (p.resources > p.influence) {
+          optimalRes += p.resources;
+        } else if (p.influence > p.resources) {
+          optimalInf += p.influence;
+        } else {
+          optimalFlex += p.resources;
+        }
+
+        if (p.tech) {
+          skips.push(p.tech);
+        }
+        if (p.legendary) {
+          hasLegendary = true;
+        }
+      });
+    });
+
+    return {
+      totalRes,
+      totalInf,
+      optimalRes,
+      optimalInf,
+      optimalFlex,
+      optimalTotal: optimalRes + optimalInf + optimalFlex,
+      skips,
+      hasLegendary,
+      wormholes: Array.from(wormholes)
+    };
+  }
+
+  // Load default slices on startup
+  function loadDefaultSlices() {
+    const defaultString = "65,29,68,25,41|24,30,46,26,67|21,62,37,39,117|111,33,72,113,114|103,107,48,64,42|32,99,35,79,77|108,97,116,102,49|23,36,75,40,80";
+    slicesEls.stringInput.value = defaultString;
+    importSlicesFromString(defaultString);
+  }
+
+  // Parse string and build state
+  function importSlicesFromString(str) {
+    if (!str.trim()) return;
+    
+    // Split by | or ;
+    const sliceParts = str.split(/[|;]/);
+    slicesData = [];
+
+    sliceParts.forEach((part, idx) => {
+      const trimmed = part.trim();
+      if (!trimmed) return;
+
+      const tileIds = trimmed.split(',').map(s => s.trim());
+      // Pad or truncate to 5 tiles
+      while (tileIds.length < 5) tileIds.push("46"); // empty system fallback
+      if (tileIds.length > 5) tileIds.length = 5;
+
+      const sliceName = String.fromCharCode(65 + idx); // A, B, C, ...
+      slicesData.push({
+        name: sliceName,
+        tiles: tileIds
+      });
+    });
+
+    selectedTile = null;
+    updateEditorPanel();
+    renderSlices();
+  }
+
+  // Export state to string
+  function exportSlicesToString() {
+    const str = slicesData.map(s => s.tiles.join(',')).join('|');
+    slicesEls.stringInput.value = str;
+    slicesEls.stringInput.select();
+    
+    // Copy to clipboard
+    navigator.clipboard.writeText(str).then(() => {
+      // Show short alert/visual cue
+      const origText = slicesEls.btnExport.textContent;
+      slicesEls.btnExport.textContent = "Copiado!";
+      slicesEls.btnExport.style.background = "var(--accent-teal)";
+      setTimeout(() => {
+        slicesEls.btnExport.textContent = origText;
+        slicesEls.btnExport.style.background = "";
+      }, 1500);
+    });
+  }
+
+  // Add new blank slice
+  function addBlankSlice() {
+    const idx = slicesData.length;
+    const sliceName = String.fromCharCode(65 + idx);
+    slicesData.push({
+      name: sliceName,
+      tiles: ["46", "46", "46", "46", "46"] // empty systems
+    });
+    renderSlices();
+    
+    // Update string input
+    slicesEls.stringInput.value = slicesData.map(s => s.tiles.join(',')).join('|');
+  }
+
+  // Clear all slices
+  function clearAllSlices() {
+    slicesData = [];
+    selectedTile = null;
+    updateEditorPanel();
+    renderSlices();
+    slicesEls.stringInput.value = "";
+  }
+
+  // Update System Editor Panel
+  function updateEditorPanel() {
+    if (!selectedTile) {
+      slicesEls.editorEmpty.style.display = 'block';
+      slicesEls.editorContent.style.display = 'none';
+      return;
+    }
+
+    slicesEls.editorEmpty.style.display = 'none';
+    slicesEls.editorContent.style.display = 'flex';
+
+    const slice = slicesData[selectedTile.sliceIndex];
+    const pos = slicePositions[selectedTile.tileIndex];
+    const currentTileId = slice.tiles[selectedTile.tileIndex];
+    const currentSys = TI4_SYSTEMS[currentTileId] || { name: 'Desconhecido', id: currentTileId, back: 'blue', planets: [], wormholes: [] };
+
+    slicesEls.editSliceName.textContent = `Slice ${slice.name}`;
+    slicesEls.editPositionName.textContent = pos.label;
+    slicesEls.sysSearch.value = "";
+
+    // Render all tiles as search results initially
+    renderSearchResults("");
+  }
+
+  // Render search results in editor
+  function renderSearchResults(query) {
+    slicesEls.searchResults.innerHTML = "";
+    
+    // Convert query to lower case
+    const q = query.toLowerCase().trim();
+
+    // Find matching systems from TI4_SYSTEMS
+    const results = [];
+    Object.keys(TI4_SYSTEMS).forEach(id => {
+      const sys = TI4_SYSTEMS[id];
+      
+      // Match by tile number or name or planet names
+      const matchId = id.includes(q);
+      const matchName = sys.name.toLowerCase().includes(q);
+      let matchPlanet = false;
+      sys.planets.forEach(p => {
+        if (p.name.toLowerCase().includes(q)) matchPlanet = true;
+      });
+
+      if (!q || matchId || matchName || matchPlanet) {
+        results.push(sys);
+      }
+    });
+
+    // Sort results: Blue tiles first, then Red tiles, then Home/Green tiles, then by ID numeric
+    results.sort((a, b) => {
+      if (a.back !== b.back) {
+        if (a.back === 'blue') return -1;
+        if (b.back === 'blue') return 1;
+        if (a.back === 'red') return -1;
+        if (b.back === 'red') return 1;
+      }
+      return parseInt(a.id) - parseInt(b.id);
+    });
+
+    if (results.length === 0) {
+      slicesEls.searchResults.innerHTML = `<div style="font-size: 0.8rem; color: var(--text-muted); text-align: center; padding: 1rem;">Nenhum sistema encontrado.</div>`;
+      return;
+    }
+
+    results.forEach(sys => {
+      const item = document.createElement('div');
+      item.className = 'slices-editor-result-item';
+      
+      // Calculate system stats summary
+      let resCount = 0;
+      let infCount = 0;
+      sys.planets.forEach(p => {
+        resCount += p.resources;
+        infCount += p.influence;
+      });
+
+      let badgeClass = sys.back === 'red' ? 'style="color: var(--accent-crimson); font-weight: bold;"' : 'style="color: var(--accent-teal); font-weight: bold;"';
+      let backName = sys.back === 'red' ? 'Vermelho' : (sys.back === 'blue' ? 'Azul' : 'Verde');
+
+      let statsSummary = sys.planets.length > 0 ? `${resCount}R, ${infCount}I` : 'Sem Planetas';
+      
+      // Skips and specials info
+      let specials = [];
+      sys.planets.forEach(p => {
+        if (p.tech) specials.push(p.tech.substring(0,3).toUpperCase());
+        if (p.legendary) specials.push('LEG');
+      });
+      sys.wormholes.forEach(w => specials.push(`WH-${w.toUpperCase()}`));
+      const specialsStr = specials.length > 0 ? ` [${specials.join(',')}]` : '';
+
+      item.innerHTML = `
+        <div>
+          <span ${badgeClass}>[${sys.id}]</span> <strong>${sys.name}</strong>
+          <div style="font-size: 0.75rem; color: var(--text-muted);">${backName} | ${statsSummary}${specialsStr}</div>
+        </div>
+        <button class="reset-filters-btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; margin-top: 0; background: rgba(99, 102, 241, 0.15); border-color: var(--accent-indigo);">Selecionar</button>
+      `;
+
+      item.addEventListener('click', () => {
+        if (!selectedTile) return;
+        
+        // Update state
+        slicesData[selectedTile.sliceIndex].tiles[selectedTile.tileIndex] = sys.id;
+        
+        // Update string textarea
+        slicesEls.stringInput.value = slicesData.map(s => s.tiles.join(',')).join('|');
+
+        // Re-render
+        renderSlices();
+        
+        // Highlight active hex
+        const activeHex = document.querySelector(`.slice-hex[data-slice="${selectedTile.sliceIndex}"][data-tile="${selectedTile.tileIndex}"]`);
+        if (activeHex) activeHex.classList.add('active-hex');
+        
+        // Update stats card details if search results updated
+        updateEditorPanel();
+      });
+
+      slicesEls.searchResults.appendChild(item);
+    });
+  }
+
+  // Render slices container
+  function renderSlices() {
+    slicesEls.container.innerHTML = "";
+
+    if (slicesData.length === 0) {
+      slicesEls.container.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted); background: rgba(255,255,255,0.01); border: 1px dashed rgba(255,255,255,0.08); border-radius: 8px;">
+          Nenhum slice carregado. Use a caixa de importação ao lado ou clique em "+ Adicionar Slice" para começar.
+        </div>
+      `;
+      return;
+    }
+
+    slicesData.forEach((slice, sIdx) => {
+      const card = document.createElement('div');
+      card.className = 'slice-card';
+
+      // Compute stats
+      const stats = calculateSliceMetrics(slice.tiles);
+
+      // Skips and specialties
+      const skipIcons = stats.skips.map(s => {
+        let color = '#fff';
+        if (s === 'cybernetic') color = '#3b82f6'; // blue
+        if (s === 'biotic') color = '#22c55e'; // green
+        if (s === 'propulsion') color = '#a855f7'; // purple
+        if (s === 'warfare') color = '#ef4444'; // red
+        return `<span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${color}; margin-right:4px;" title="${s}"></span>`;
+      }).join('');
+
+      let specialInfo = "";
+      if (stats.hasLegendary) specialInfo += "⭐ Lendário ";
+      if (stats.wormholes.length > 0) specialInfo += `🌀 WH(${stats.wormholes.join(',').toUpperCase()}) `;
+
+      // Render hexagon sector map
+      let hexesHtml = "";
+      slicePositions.forEach(pos => {
+        const id = slice.tiles[pos.index];
+        const sys = TI4_SYSTEMS[id] || { name: 'Empty', id, back: 'red', planets: [], wormholes: [] };
+        
+        let tileClass = sys.back === 'red' ? 'red-tile' : 'blue-tile';
+        
+        // Active border if selected
+        const isActive = selectedTile && selectedTile.sliceIndex === sIdx && selectedTile.tileIndex === pos.index;
+        const activeClass = isActive ? 'active-hex' : '';
+
+        // Planet text inside hex
+        let resCount = 0;
+        let infCount = 0;
+        sys.planets.forEach(p => {
+          resCount += p.resources;
+          infCount += p.influence;
+        });
+        const planetText = sys.planets.length > 0 ? `${resCount}/${infCount}` : '';
+
+        // Badges inside hex (skips / legendary / wormhole)
+        let hasWh = sys.wormholes.length > 0 ? '🌀' : '';
+        let hasLeg = sys.planets.some(p => p.legendary) ? '⭐' : '';
+        let hasSk = sys.planets.some(p => p.tech) ? '🧪' : '';
+        const badges = `${hasWh}${hasLeg}${hasSk}`;
+
+        hexesHtml += `
+          <div class="slice-hex ${tileClass} ${activeClass}" 
+               data-slice="${sIdx}" 
+               data-tile="${pos.index}"
+               style="top: ${pos.top}px; left: ${pos.left}px;"
+               title="${pos.label}: ${sys.name} (${sys.id})">
+            <span class="slice-hex-number">${sys.id}</span>
+            <span class="slice-hex-name">${sys.name}</span>
+            ${planetText ? `<span class="slice-hex-planets">${planetText}</span>` : ''}
+            ${badges ? `<div class="slice-hex-icons">${badges}</div>` : ''}
+          </div>
+        `;
+      });
+
+      card.innerHTML = `
+        <div style="font-family: var(--font-display); font-weight: 800; font-size: 1.2rem; color: var(--accent-teal); margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 0.5rem;">
+          <span>Slice ${slice.name}</span>
+          <button class="slices-btn-delete-slice reset-filters-btn" data-slice="${sIdx}" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; border-color: rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.05); margin-top: 0; color: var(--accent-crimson);">Excluir</button>
+        </div>
+
+        <div class="slice-map-wrapper">
+          ${hexesHtml}
+        </div>
+
+        <div class="planner-player-list" style="margin-top: 1rem;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; text-align: left; color: var(--text-muted);">
+            <thead>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); font-weight: 700; color: var(--text-main);">
+                <th style="padding: 0.35rem 0;">Métrica</th>
+                <th style="padding: 0.35rem 0; text-align: right;">Total</th>
+                <th style="padding: 0.35rem 0; text-align: right; color: var(--accent-teal);">Ótimo</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <td style="padding: 0.35rem 0;">Recursos</td>
+                <td style="padding: 0.35rem 0; text-align: right;">${stats.totalRes}</td>
+                <td style="padding: 0.35rem 0; text-align: right; color: var(--accent-teal); font-weight: bold;">${stats.optimalRes}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <td style="padding: 0.35rem 0;">Influência</td>
+                <td style="padding: 0.35rem 0; text-align: right;">${stats.totalInf}</td>
+                <td style="padding: 0.35rem 0; text-align: right; color: var(--accent-teal); font-weight: bold;">${stats.optimalInf}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <td style="padding: 0.35rem 0;">Flex (Equiv)</td>
+                <td style="padding: 0.35rem 0; text-align: right;">-</td>
+                <td style="padding: 0.35rem 0; text-align: right; color: var(--accent-teal);">${stats.optimalFlex}</td>
+              </tr>
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.04); font-weight: 700; color: var(--text-main);">
+                <td style="padding: 0.4rem 0;">Valor da Fatia</td>
+                <td style="padding: 0.4rem 0; text-align: right;">${stats.totalRes + stats.totalInf}</td>
+                <td style="padding: 0.4rem 0; text-align: right; color: var(--accent-teal); font-size: 0.95rem;">${stats.optimalTotal}</td>
+              </tr>
+              ${stats.skips.length > 0 ? `
+              <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                <td style="padding: 0.35rem 0;">Especialidades</td>
+                <td colspan="2" style="padding: 0.35rem 0; text-align: right; display: flex; align-items: center; justify-content: flex-end;">
+                  ${skipIcons} <span style="font-size: 0.75rem;">(${stats.skips.length} skips)</span>
+                </td>
+              </tr>` : ''}
+              ${specialInfo ? `
+              <tr>
+                <td style="padding: 0.35rem 0;">Especiais</td>
+                <td colspan="2" style="padding: 0.35rem 0; text-align: right; color: var(--accent-amber); font-size: 0.75rem;">
+                  ${specialInfo}
+                </td>
+              </tr>` : ''}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      slicesEls.container.appendChild(card);
+    });
+
+    // Wire up hex click events
+    document.querySelectorAll('.slice-hex').forEach(hex => {
+      hex.addEventListener('click', (e) => {
+        const sIdx = parseInt(hex.dataset.slice);
+        const tIdx = parseInt(hex.dataset.tile);
+        
+        // Remove active-hex from all
+        document.querySelectorAll('.slice-hex').forEach(h => h.classList.remove('active-hex'));
+        
+        selectedTile = { sliceIndex: sIdx, tileIndex: tIdx };
+        hex.classList.add('active-hex');
+        
+        updateEditorPanel();
+      });
+    });
+
+    // Wire up delete slice buttons
+    document.querySelectorAll('.slices-btn-delete-slice').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const sIdx = parseInt(btn.dataset.slice);
+        slicesData.splice(sIdx, 1);
+        
+        // Recalculate slice names
+        slicesData.forEach((s, i) => {
+          s.name = String.fromCharCode(65 + i);
+        });
+
+        selectedTile = null;
+        updateEditorPanel();
+        renderSlices();
+
+        // Update string input
+        slicesEls.stringInput.value = slicesData.map(s => s.tiles.join(',')).join('|');
+      });
+    });
+  }
+
+  // Wire up Slice Editor control listeners
+  slicesEls.btnImport.addEventListener('click', () => {
+    importSlicesFromString(slicesEls.stringInput.value);
+  });
+
+  slicesEls.btnExport.addEventListener('click', () => {
+    exportSlicesToString();
+  });
+
+  slicesEls.btnAdd.addEventListener('click', () => {
+    addBlankSlice();
+  });
+
+  slicesEls.btnClear.addEventListener('click', () => {
+    if (confirm("Tem certeza que deseja limpar todas as fatias?")) {
+      clearAllSlices();
+    }
+  });
+
+  slicesEls.sysSearch.addEventListener('input', (e) => {
+    renderSearchResults(e.target.value);
+  });
+
+  // Load defaults
+  loadDefaultSlices();
+
+  // --- END OF EDITOR DE SLICES (MILTY DRAFT) CODE ---
+
   // 8. Start Application
   initCharts();
   updateDashboard();

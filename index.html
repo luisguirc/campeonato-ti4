@@ -104,6 +104,7 @@
           <button class="tab-btn" data-tab="tab-factions">Facções</button>
           <button class="tab-btn" data-tab="tab-championship">Campeonato & Sugestões</button>
           <button class="tab-btn" data-tab="tab-planner">Gerador de Tabelas</button>
+          <button class="tab-btn" data-tab="tab-slices">Editor de Slices</button>
           <button class="tab-btn" data-tab="tab-insights">Insights do Torneio</button>
         </nav>
       </header>
@@ -377,7 +378,77 @@
         </div>
       </div>
 
-      <!-- TAB 6: INSIGHTS DO TORNEIO -->
+      <!-- TAB 6: EDITOR DE SLICES -->
+      <div id="tab-slices" class="dashboard-section">
+        <div class="card">
+          <h3 class="card-title">🗺️ Editor de Slices (Milty Draft)<span class="card-title-subtitle">Visualize, edite e analise fatias de mapa em tempo real</span></h3>
+          
+          <div class="planner-panel">
+            
+            <!-- Left: Slices list & stats -->
+            <div style="flex: 2; display: flex; flex-direction: column; gap: 1.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.75rem;">
+                <h4 style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); margin: 0;">Fatias do Mapa</h4>
+                <div style="display: flex; gap: 0.5rem;">
+                  <button id="slices-btn-add" class="reset-filters-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: rgba(20, 184, 166, 0.15); border-color: var(--accent-teal); margin-top: 0;">+ Adicionar Slice</button>
+                  <button id="slices-btn-clear" class="reset-filters-btn" style="padding: 0.5rem 1rem; font-size: 0.85rem; background: rgba(239, 68, 68, 0.15); border-color: var(--accent-crimson); margin-top: 0;">Limpar Tudo</button>
+                </div>
+              </div>
+              
+              <div id="slices-container" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1.5rem; width: 100%;">
+                <!-- Dynamically generated slices -->
+              </div>
+            </div>
+            
+            <!-- Right: Control panel & System Editor -->
+            <div style="flex: 1; display: flex; flex-direction: column; gap: 1.5rem; border-left: 1px solid rgba(255,255,255,0.08); padding-left: 1.5rem; min-width: 300px;">
+              
+              <!-- Input / Import string -->
+              <div class="filter-group" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.05); padding: 1rem; border-radius: 6px;">
+                <label class="filter-label" style="font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem;">📥 Importar / Exportar Slices</label>
+                <textarea id="slices-string-input" class="custom-select" style="width: 100%; height: 90px; font-family: monospace; font-size: 0.8rem; padding: 0.5rem; background: rgba(0,0,0,0.2); color: var(--text-main); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; resize: none; box-sizing: border-box; line-height: 1.4;" placeholder="Ex: 65,29,68,25,41|24,30,46,26,67|..."></textarea>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; width: 100%;">
+                  <button id="slices-btn-import" class="reset-filters-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: var(--accent-indigo); border-color: var(--accent-indigo); flex: 1; margin-top: 0;">Importar</button>
+                  <button id="slices-btn-export" class="reset-filters-btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.08); flex: 1; margin-top: 0;">Exportar String</button>
+                </div>
+              </div>
+              
+              <!-- Selected system editor panel -->
+              <div id="slices-editor-panel" class="card" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); padding: 1rem; border-radius: 6px;">
+                <h4 style="font-family: var(--font-display); font-weight: 700; color: var(--text-main); font-size: 1rem; margin: 0 0 0.75rem 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem;">🛠️ Editor de Sistema</h4>
+                <div id="slices-editor-empty" style="color: var(--text-muted); font-size: 0.85rem; text-align: center; padding: 1.5rem 0;">
+                  Selecione um sistema do mapa ao lado para editar.
+                </div>
+                <div id="slices-editor-content" style="display: none; flex-direction: column; gap: 0.75rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                      <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Slice</span>
+                      <div id="slices-edit-slice-name" style="font-size: 0.95rem; font-weight: 700; color: var(--accent-teal);">Slice A</div>
+                    </div>
+                    <div style="text-align: right;">
+                      <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Posição</span>
+                      <div id="slices-edit-position-name" style="font-size: 0.95rem; font-weight: 700; color: var(--text-main);">Centro (C)</div>
+                    </div>
+                  </div>
+                  
+                  <div style="border-top: 1px solid rgba(255,255,255,0.06); padding-top: 0.75rem;">
+                    <label class="filter-label" style="margin-bottom: 0.4rem; font-size: 0.85rem;">Substituir por:</label>
+                    <input type="text" id="slices-sys-search" class="custom-select" style="width: 100%; margin-bottom: 0.5rem; box-sizing: border-box;" placeholder="Digite o nº ou nome do planeta...">
+                    
+                    <div id="slices-search-results" style="max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem; background: rgba(0,0,0,0.3); border-radius: 4px; padding: 0.25rem; border: 1px solid rgba(255,255,255,0.06); box-sizing: border-box;">
+                      <!-- Search results list -->
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+            </div>
+          </div>
+          
+        </div>
+      </div>
+
+      <!-- TAB 7: INSIGHTS DO TORNEIO -->
       <div id="tab-insights" class="dashboard-section">
         <div class="card">
           <h3 class="card-title">💡 Insights Estratégicos & Recomendações de Formato<span class="card-title-subtitle">Análise baseada em dados para moldar a estrutura do campeonato</span></h3>
@@ -440,6 +511,7 @@
 
   <!-- Main scripts -->
   <script src="data.js"></script>
+  <script src="systems.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
