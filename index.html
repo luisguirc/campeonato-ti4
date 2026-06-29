@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TI4 BR - Análise de Perfil de Jogador</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Chart.js CDN for interactive graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Sidebar: Filters and Information -->
+    <aside class="sidebar">
+      <div class="logo-container">
+        <h1 class="logo-title">TI4 BR</h1>
+        <p class="logo-subtitle">Perfil & Campeonato</p>
+      </div>
+      
+      <div class="filter-section">
+        <h2 class="filter-label">Filtros Ativos</h2>
+        
+        <div class="filter-group">
+          <label for="filter-interest" class="filter-label">Interesse no Campeonato</label>
+          <select id="filter-interest" class="custom-select">
+            <option value="ALL">Todos os Respondentes</option>
+            <option value="Sim">Apenas Confirmados (Sim)</option>
+            <option value="Sim/Talvez">Interessados (Sim + Talvez)</option>
+            <option value="Talvez">Apenas Talvez</option>
+            <option value="Não">Apenas Não Interessados</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filter-state" class="filter-label">Estado (UF)</label>
+          <select id="filter-state" class="custom-select">
+            <option value="ALL">Todos os Estados</option>
+            <!-- Will be dynamically populated or hardcoded with main ones -->
+            <option value="SP">São Paulo (SP)</option>
+            <option value="RJ">Rio de Janeiro (RJ)</option>
+            <option value="MG">Minas Gerais (MG)</option>
+            <option value="RS">Rio Grande do Sul (RS)</option>
+            <option value="PR">Paraná (PR)</option>
+            <option value="DF">Distrito Federal (DF)</option>
+            <option value="SC">Santa Catarina (SC)</option>
+            <option value="PE">Pernambuco (PE)</option>
+            <option value="OTHER">Outros Estados</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filter-experience" class="filter-label">Experiência</label>
+          <select id="filter-experience" class="custom-select">
+            <option value="ALL">Qualquer tempo</option>
+            <option value="Menos de 1 ano">Iniciante (Menos de 1 ano)</option>
+            <option value="Entre 1 a 3 anos">Intermediário (1 a 3 anos)</option>
+            <option value="Entre 4 e 6 anos">Experiente (4 a 6 anos)</option>
+            <option value="Mais de 6 anos">Veterano (Mais de 6 anos)</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filter-style" class="filter-label">Estilo de Jogo</label>
+          <select id="filter-style" class="custom-select">
+            <option value="ALL">Todos os estilos</option>
+            <option value="Equilibrado">Equilibrado (Casual/Competitivo)</option>
+            <option value="Focado em negociação e diplomacia">Focado em Negociação e Diplomacia</option>
+            <option value="Agressivo e focado em combate">Agressivo e Focado em Combate</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="filter-expansions" class="filter-label">Expansões Utilizadas</label>
+          <select id="filter-expansions" class="custom-select">
+            <option value="ALL">Qualquer uma</option>
+            <option value="base">Apenas Jogo Base</option>
+            <option value="pok">Inclui Prophecy of Kings (PoK)</option>
+            <option value="thunder">Inclui Thunder's Edge</option>
+          </select>
+        </div>
+        
+        <button id="btn-reset-filters" class="reset-filters-btn">Limpar Filtros</button>
+      </div>
+
+      <div class="active-filters-info">
+        Mostrando <span id="filtered-count">0</span> de <span id="total-count">0</span> respondentes (<span id="filtered-percent">0</span>%)
+      </div>
+    </aside>
+
+    <!-- Main Dashboard Panel -->
+    <main class="main-content">
+      
+      <!-- Top Header & Navigation -->
+      <header class="dashboard-header">
+        <div>
+          <h2 style="font-family: var(--font-display); font-size: 1.8rem; font-weight: 800;">Painel de Inteligência TI4</h2>
+          <p style="color: var(--text-muted); font-size: 0.95rem;">Análise de dados para o Campeonato Brasileiro de Twilight Imperium IV</p>
+        </div>
+        
+        <nav class="tab-nav">
+          <button class="tab-btn active" data-tab="tab-overview">Visão Geral</button>
+          <button class="tab-btn" data-tab="tab-preferences">Preferências</button>
+          <button class="tab-btn" data-tab="tab-factions">Facções</button>
+          <button class="tab-btn" data-tab="tab-championship">Campeonato & Sugestões</button>
+          <button class="tab-btn" data-tab="tab-planner">Gerador de Tabelas</button>
+          <button class="tab-btn" data-tab="tab-insights">Insights do Torneio</button>
+        </nav>
+      </header>
+
+      <!-- KPI Summary Row -->
+      <div class="kpi-container">
+        <div class="kpi-card blue">
+          <span class="kpi-label">Amostra Total</span>
+          <span class="kpi-value" id="kpi-total-respondents">0</span>
+          <span class="kpi-desc">Fichas de jogador respondidas</span>
+        </div>
+        <div class="kpi-card teal">
+          <span class="kpi-label">Interesse Confirmado</span>
+          <span class="kpi-value" id="kpi-confirmed-players">0</span>
+          <span class="kpi-desc">Jogadores que disseram "Sim"</span>
+        </div>
+        <div class="kpi-card amber">
+          <span class="kpi-label">Jogadores Potenciais</span>
+          <span class="kpi-value" id="kpi-potential-players">0</span>
+          <span class="kpi-desc">Confirmados + "Talvez"</span>
+        </div>
+        <div class="kpi-card crimson">
+          <span class="kpi-label">Uso de Expansões</span>
+          <span class="kpi-value" id="kpi-expansions-summary" style="font-size: 1.15rem; font-weight: 700; margin-top: 0.5rem; margin-bottom: 0.5rem;">PoK: 0% | TE: 0%</span>
+          <span class="kpi-desc">Penetração na base de respondentes</span>
+        </div>
+      </div>
+
+      <!-- TAB 1: VISÃO GERAL -->
+      <div id="tab-overview" class="dashboard-section active">
+        <!-- Highlights & Insights Row -->
+        <div class="grid-3col">
+          <div class="insight-card">
+            <div class="insight-icon">👥</div>
+            <div class="insight-content">
+              <h3 class="insight-title">Distribuição Geográfica</h3>
+              <p class="insight-desc" id="insight-geography">A maioria dos respondentes reside na região Sudeste, liderada por São Paulo.</p>
+            </div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-icon">⏳</div>
+            <div class="insight-content">
+              <h3 class="insight-title">Retenção e Experiência</h3>
+              <p class="insight-desc" id="insight-experience">Mais de metade dos jogadores atua há mais de 3 anos, indicando uma comunidade muito engajada.</p>
+            </div>
+          </div>
+          <div class="insight-card">
+            <div class="insight-icon">🎯</div>
+            <div class="insight-content">
+              <h3 class="insight-title">Frequência Recente</h3>
+              <p class="insight-desc" id="insight-frequency">Média de partidas jogadas no último ano indica alta atividade da comunidade no TTS/Presencial.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Charts Grid -->
+        <div class="grid-2col">
+          <div class="card">
+            <h3 class="card-title">Distribuição Geográfica (Estados)<span class="card-title-subtitle">Residência dos jogadores</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-states"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Faixa Etária<span class="card-title-subtitle">Idade dos jogadores</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-age"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Tempo de Jogo (Experiência)<span class="card-title-subtitle">Há quanto tempo joga TI4</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-experience"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Partidas Jogadas no Último Ano<span class="card-title-subtitle">Volume de jogo recente</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-games-year"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: PREFERÊNCIAS DE JOGO -->
+      <div id="tab-preferences" class="dashboard-section">
+        <div class="grid-2col">
+          <div class="card">
+            <h3 class="card-title">Modos de Jogo Utilizados<span class="card-title-subtitle">Como costumam jogar TI4</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-play-method"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Contagem de Jogadores Favorita<span class="card-title-subtitle">Tamanho de mesa predileto</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-player-count"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Duração Média das Partidas<span class="card-title-subtitle">Em horas (tempo real)</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-duration"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Dificuldade para Jogar Mais Vezes<span class="card-title-subtitle">Maiores barreiras</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-difficulty"></canvas>
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Expansões Utilizadas<span class="card-title-subtitle">Crossover de Jogo Base, PoK e Thunder's Edge</span></h3>
+            <div class="chart-container">
+              <canvas id="chart-expansions-pref"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3col">
+          <div class="card">
+            <h3 class="card-title">Com quem joga na maioria das vezes?</h3>
+            <div id="list-play-partners" class="info-list">
+              <!-- Will be populated by JS -->
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Meta de Pontuação Preferida</h3>
+            <div id="list-points-goal" class="info-list">
+              <!-- Will be populated by JS -->
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Configurações Iniciais & Draft</h3>
+            <div id="list-setup-preferences" class="info-list">
+              <!-- Will be populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: ANÁLISE DE FACÇÕES -->
+      <div id="tab-factions" class="dashboard-section">
+        <div class="card">
+          <h3 class="card-title">Visão Comparativa de Facções<span class="card-title-subtitle">Top 3 Favoritas vs Menos Interessantes</span></h3>
+          
+          <div class="faction-split-container">
+            <div>
+              <h4 style="color: var(--accent-teal); font-family: var(--font-display); font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">🔥 Facções Mais Amadas (Favoritas)</h4>
+              <div id="list-factions-favorites" class="faction-rank-list">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+            <div>
+              <h4 style="color: var(--accent-crimson); font-family: var(--font-display); font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">❄️ Facções Menos Interessantes (Menos Votadas)</h4>
+              <div id="list-factions-unpopular" class="faction-rank-list">
+                <!-- Populated by JS -->
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="card-title">Correlação: Preferência de Facções por Experiência<span class="card-title-subtitle">Votos das facções favoritas estratificados pelo tempo de jogo dos respondentes</span></h3>
+          <div class="chart-container" style="min-height: 650px; max-height: 800px; padding: 1rem 0;">
+            <canvas id="chart-faction-experience"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 4: CAMPEONATO & SUGESTÕES -->
+      <div id="tab-championship" class="dashboard-section">
+        
+        <div class="grid-2col">
+          <!-- Availability Heatmap -->
+          <div class="card">
+            <h3 class="card-title">Disponibilidade dos Jogadores para o Torneio<span class="card-title-subtitle">Seguindo os filtros ativos</span></h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted);">Indica em quantos questionários cada opção de agenda foi assinalada (múltipla escolha).</p>
+            
+            <div class="heatmap-grid" id="availability-heatmap">
+              <!-- Will be generated by JS -->
+            </div>
+          </div>
+
+          <!-- Matches Desired -->
+          <div class="card">
+            <h3 class="card-title">Quantas partidas gostaria de jogar?</h3>
+            <div class="chart-container">
+              <canvas id="chart-championship-games"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Suggestions & Comments from community -->
+        <div class="card">
+          <h3 class="card-title">Sugestões de Formato da Comunidade<span class="card-title-subtitle">Comentários diretos do formulário</span></h3>
+          <div class="suggestions-list" id="suggestions-list">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+
+        <!-- Contacts Lists for Organization -->
+        <div class="grid-2col">
+          <div class="card">
+            <h3 class="card-title">Contatos para Organização (WhatsApp)<span class="card-title-subtitle">Jogadores que se voluntariaram</span></h3>
+            <div class="suggestions-list" id="list-whatsapp-contacts" style="max-height: 250px;">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+          <div class="card">
+            <h3 class="card-title">Mailing List do Campeonato (E-mails / Contatos)<span class="card-title-subtitle">Para envio de novidades do torneio</span></h3>
+            <div class="suggestions-list" id="list-email-contacts" style="max-height: 250px;">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 5: GERADOR DE TABELAS -->
+      <div id="tab-planner" class="dashboard-section">
+        <div class="card">
+          <h3 class="card-title">Gerador Dinâmico de Grupos do Torneio<span class="card-title-subtitle">Distribuidor automático baseado na disponibilidade</span></h3>
+          <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            Esta ferramenta utiliza a lista filtrada de jogadores ativos (interessados no campeonato) e gera uma distribuição de mesas de 6 jogadores baseada na sua disponibilidade declarada.
+          </p>
+
+          <div class="planner-panel">
+            <div class="planner-controls">
+              <div class="planner-summary-box">
+                <span class="planner-summary-title">Jogadores Ativos</span>
+                <span class="planner-summary-num" id="planner-active-count">0</span>
+                <span class="planner-summary-title" id="planner-tables-calc">0 Mesas Completas</span>
+              </div>
+              
+              <div class="filter-group">
+                <label for="planner-sort" class="filter-label">Critério de Semeadura (Seeding)</label>
+                <select id="planner-sort" class="custom-select">
+                  <option value="experience">Nível de Experiência (Mesas mais equilibradas)</option>
+                  <option value="state">Distribuição Geográfica (Evitar mesmo estado)</option>
+                  <option value="random">Sorteio Aleatório Puro (Padrão)</option>
+                </select>
+              </div>
+              
+              <div class="filter-group">
+                <label for="planner-algorithm" class="filter-label">Algoritmo de Mesas</label>
+                <select id="planner-algorithm" class="custom-select">
+                  <option value="optimized">Otimizador (Mesas de 6, 5 e 7)</option>
+                  <option value="simple">Divisão Igualitária (Original)</option>
+                </select>
+              </div>
+
+              <div class="filter-group">
+                <label class="filter-label">Preferência de Expansão</label>
+                <div style="font-size: 0.85rem; color: var(--text-muted); padding: 0.5rem 0;">
+                  O planejador assumirá o uso de <strong>Prophecy of Kings (PoK)</strong>, dado que mais de 85% dos interessados jogam com ela.
+                </div>
+              </div>
+
+              <button id="btn-generate-tables" class="reset-filters-btn" style="background: linear-gradient(135deg, var(--accent-teal), var(--accent-indigo)); border-color: var(--accent-teal);">
+                Gerar Mesas da Rodada 1
+              </button>
+            </div>
+
+            <div>
+              <h4 style="font-family: var(--font-display); font-weight: 700; margin-bottom: 1rem; color: var(--text-main);">Mesas Calculadas</h4>
+              <div class="planner-tables-grid" id="planner-tables-container">
+                <!-- Generated dynamically -->
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 6: INSIGHTS DO TORNEIO -->
+      <div id="tab-insights" class="dashboard-section">
+        <div class="card">
+          <h3 class="card-title">💡 Insights Estratégicos & Recomendações de Formato<span class="card-title-subtitle">Análise baseada em dados para moldar a estrutura do campeonato</span></h3>
+          <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6;">
+            Abaixo estão compiladas as principais conclusões extraídas dos 65 questionários de perfil de jogador (focando nos 55 jogadores ativamente interessados). Estes dados oferecem um norte claro para formatar as regras, limites de tempo, sistemas de draft e expansões do campeonato.
+          </p>
+
+          <div class="grid-2col">
+            
+            <!-- Insight 1: Milty Draft -->
+            <div class="card" style="background: rgba(255,255,255,0.02); border-color: rgba(20, 184, 166, 0.2);">
+              <h4 style="color: var(--accent-teal); font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">🌌 Sistema de Seleção: Milty Draft Confirmado</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.75rem;">
+                <strong>Dado:</strong> <span style="color: var(--text-main); font-weight: 600;">65.5% dos interessados (36 de 55)</span> mencionam o Milty Draft como seu método favorito ou usual de configuração inicial.
+              </p>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                <strong>Recomendação:</strong> Adotar o <strong>Milty Draft</strong> como sistema oficial do campeonato. Ele equilibra a escolha de facção, a posição no tabuleiro (fatia) e a ordem de turnos de forma competitiva, diminuindo a vantagem inerente do "Speaker" e acelerando o setup presencial ou no TTS.
+              </p>
+            </div>
+
+            <!-- Insight 2: Swiss System -->
+            <div class="card" style="background: rgba(255,255,255,0.02); border-color: rgba(99, 102, 241, 0.2);">
+              <h4 style="color: var(--accent-indigo); font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">🏆 Formato de Campeonato: Fase Suíça + Final</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.75rem;">
+                <strong>Dado:</strong> <span style="color: var(--text-main); font-weight: 600;">80% dos jogadores interessados (44 de 55)</span> querem jogar ao menos 2 partidas (ou tantas quanto conseguirem). Ao mesmo tempo, <span style="color: var(--text-main); font-weight: 600;">92.7% das partidas duram 6 horas ou mais (51 de 55)</span> (com muitas passando de 9 horas).
+              </p>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                <strong>Recomendação:</strong> Evitar eliminação simples (onde perder após 8h de jogo gera enorme frustração). O ideal é uma <strong>fase de grupos em sistema Suíço com 2 ou 3 rodadas</strong> (onde todos jogam e os confrontos são pareados por pontuação). Os 6 melhores classificados avançam para a <strong>Mesa Final</strong>.
+              </p>
+            </div>
+
+            <!-- Insight 3: Pontuação -->
+            <div class="card" style="background: rgba(255,255,255,0.02); border-color: rgba(245, 158, 11, 0.2);">
+              <h4 style="color: var(--accent-amber); font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">🎯 Meta de Pontos ideal: 10 Pontos</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.75rem;">
+                <strong>Dado:</strong> A esmagadora maioria de <span style="color: var(--text-main); font-weight: 600;">87.3% dos interessados (48 de 55)</span> tem preferência por jogar até <strong>10 pontos</strong>. Apenas 9.1% preferem 12 pontos e 3.6% preferem 14 pontos.
+              </p>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                <strong>Recomendação:</strong> Fixar o limite de pontuação do torneio em <strong>10 pontos</strong>. Partidas de 14 pontos duram em média 10+ horas no TTS, o que inviabilizaria o campeonato por questões de agenda de adultos.
+              </p>
+            </div>
+
+            <!-- Insight 4: Expansões -->
+            <div class="card" style="background: rgba(255,255,255,0.02); border-color: rgba(239, 68, 68, 0.2);">
+              <h4 style="color: var(--accent-crimson); font-family: var(--font-display); font-size: 1.15rem; font-weight: 700; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">🔌 Integração de Expansões: PoK e Thunder's Edge Confirmados</h4>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 0.75rem;">
+                <strong>Dado:</strong> <span style="color: var(--text-main); font-weight: 600;">87.3% dos interessados (48 de 55)</span> jogam com a expansão *Prophecy of Kings (PoK)*, enquanto <span style="color: var(--text-main); font-weight: 600;">36.4% (20 de 55)</span> utilizam a expansão *Thunder's Edge*.
+              </p>
+              <p style="font-size: 0.9rem; color: var(--text-muted); line-height: 1.5;">
+                <strong>Recomendação:</strong> Como ambas estão confirmadas para o torneio principal, o uso de PoK é praticamente universal. Para os <span style="color: var(--text-main); font-weight: 600;">63.6% de jogadores que nunca jogaram Thunder's Edge</span>, a organização deve providenciar materiais de apoio (regras traduzidas, resumos de habilidades e sessões rápidas de treino/demo no TTS) para garantir que entrem em campo nivelados.
+              </p>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Main scripts -->
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
